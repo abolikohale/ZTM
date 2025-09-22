@@ -1,22 +1,25 @@
-FROM node:lts-alpine
+# Stage 1 - Build React client
+FROM node:18-alpine AS client-builder
+WORKDIR /app/client
+COPY client/package.json ./
+RUN npm install --omit=dev
+COPY client/ ./
+RUN npm run build
 
+# Stage 2 - Install server
+FROM node:18-alpine
 WORKDIR /app
 
-COPY package*.json ./
-
-COPY client/package*.json client/
-RUN npm run install-client --omit=dev
-
-COPY server/package*.json server/
+COPY package.json ./
+COPY server/package.json server/
 RUN npm run install-server --omit=dev
 
-COPY client/ client/
-RUN npm run build --prefix client
+# Copy built React app into server/public
+COPY --from=client-builder /app/client/build ./server/public
 
+# Copy server code
 COPY server/ server/
 
 USER node
-
-CMD [ "npm", "start", "--prefix", "server" ]
-
 EXPOSE 8000
+CMD ["npm", "start", "--prefix", "server"]
